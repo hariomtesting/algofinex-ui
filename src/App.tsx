@@ -21,12 +21,23 @@ import { SessionScreen } from './components/app/SessionScreen';
 import { AccessScreen } from './components/app/AccessScreen';
 
 /**
+ * Helper to normalize pathname (removes trailing slashes except for root '/')
+ */
+const normalizePath = (path: string): string => {
+  if (!path) return '/';
+  const clean = path.replace(/\/+$/, '');
+  return clean === '' ? '/' : clean;
+};
+
+/**
  * ALGOFINEX — PHASE 4B
- * PATHNAME-BASED SPA ROUTING
+ * EXPLICIT NORMALIZED PATHNAME ROUTER
  */
 export const App: React.FC = () => {
-  // Current window pathname state
-  const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname);
+  // Current window pathname state (normalized)
+  const [currentPath, setCurrentPath] = useState<string>(() =>
+    normalizePath(window.location.pathname)
+  );
 
   // App Global Prototype State
   const [selectedInstrument, setSelectedInstrument] = useState<Instrument>('BTC/USD');
@@ -39,22 +50,23 @@ export const App: React.FC = () => {
   // Listen for browser popstate events (Back/Forward navigation)
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
+      setCurrentPath(normalizePath(window.location.pathname));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Helper to navigate to a new pathname
-  const navigateTo = (path: string) => {
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, '', path);
-      setCurrentPath(path);
+  // Helper to navigate internally with pushState
+  const navigateTo = (targetPath: string) => {
+    const normTarget = normalizePath(targetPath);
+    if (normalizePath(window.location.pathname) !== normTarget) {
+      window.history.pushState({}, '', normTarget);
+      setCurrentPath(normTarget);
       window.scrollTo(0, 0);
     }
   };
 
-  // Helper to map active pathname to AppTab
+  // Helper to map normalized pathname to active AppTab
   const getActiveTabFromPath = (path: string): AppTab => {
     if (path === '/app/workspace') return 'workspace';
     if (path === '/app/indicators') return 'indicators';
@@ -63,10 +75,10 @@ export const App: React.FC = () => {
     return 'overview';
   };
 
-  // Check if current route is an application route (/app or /app/*)
+  // Determine route classification
   const isAppRoute = currentPath === '/app' || currentPath.startsWith('/app/');
 
-  // Render Application Workstation if pathname is an /app route
+  // Render Application Workstation if currentPath is an /app route
   if (isAppRoute) {
     const activeTab = getActiveTabFromPath(currentPath);
 
