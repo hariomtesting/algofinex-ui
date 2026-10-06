@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/marketing/Navbar';
 import { Hero } from './components/marketing/Hero';
 import { ProductRevealSection } from './components/marketing/ProductRevealSection';
@@ -22,14 +22,13 @@ import { AccessScreen } from './components/app/AccessScreen';
 
 /**
  * ALGOFINEX — PHASE 4B
- * COMPLETE FRONTEND PROTOTYPE SPA & WORKSTATION EXPERIENCE
+ * PATHNAME-BASED SPA ROUTING
  */
 export const App: React.FC = () => {
-  // Mode switch: 'marketing' (Public Presentation) vs 'app' (Product Workstation)
-  const [appMode, setAppMode] = useState<'marketing' | 'app'>('marketing');
+  // Current window pathname state
+  const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname);
 
   // App Global Prototype State
-  const [activeTab, setActiveTab] = useState<AppTab>('workspace');
   const [selectedInstrument, setSelectedInstrument] = useState<Instrument>('BTC/USD');
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('15m');
   const [activeLens, setActiveLens] = useState<LensLayer>('STRUCTURE');
@@ -37,21 +36,59 @@ export const App: React.FC = () => {
   // Marketing Client Portal Modal State
   const [isPortalOpen, setIsPortalOpen] = useState(false);
 
-  // If in 'app' mode, render the Phase 4 Application Workstation
-  if (appMode === 'app') {
+  // Listen for browser popstate events (Back/Forward navigation)
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Helper to navigate to a new pathname
+  const navigateTo = (path: string) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  // Helper to map active pathname to AppTab
+  const getActiveTabFromPath = (path: string): AppTab => {
+    if (path === '/app/workspace') return 'workspace';
+    if (path === '/app/indicators') return 'indicators';
+    if (path === '/app/session') return 'session';
+    if (path === '/app/access') return 'access';
+    return 'overview';
+  };
+
+  // Check if current route is an application route (/app or /app/*)
+  const isAppRoute = currentPath === '/app' || currentPath.startsWith('/app/');
+
+  // Render Application Workstation if pathname is an /app route
+  if (isAppRoute) {
+    const activeTab = getActiveTabFromPath(currentPath);
+
     return (
       <AppShell
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          const targetPath = tab === 'overview' ? '/app' : `/app/${tab}`;
+          navigateTo(targetPath);
+        }}
         selectedInstrument={selectedInstrument}
         onInstrumentChange={setSelectedInstrument}
         selectedTimeframe={selectedTimeframe}
         onTimeframeChange={setSelectedTimeframe}
-        onExitApp={() => setAppMode('marketing')}
+        onExitApp={() => navigateTo('/')}
       >
         {activeTab === 'overview' && (
           <OverviewScreen
-            onNavigate={setActiveTab}
+            onNavigate={(tab) => {
+              const targetPath = tab === 'overview' ? '/app' : `/app/${tab}`;
+              navigateTo(targetPath);
+            }}
             selectedInstrument={selectedInstrument}
           />
         )}
@@ -70,11 +107,11 @@ export const App: React.FC = () => {
     );
   }
 
-  // Otherwise render the Public Presentation Landing Experience
+  // Otherwise render Marketing Public Presentation
   return (
     <div className="min-h-screen bg-background text-text-primary selection:bg-brand-blue/20 selection:text-slate-900 flex flex-col justify-between">
       {/* Top Persistent Navigation */}
-      <Navbar onOpenPortal={() => setAppMode('app')} />
+      <Navbar onOpenPortal={() => navigateTo('/app')} />
 
       {/* Main Sequential Experience Flow */}
       <main className="flex-1 w-full min-w-0">
@@ -141,7 +178,7 @@ export const App: React.FC = () => {
             <a href="#pricing" className="text-slate-600 hover:text-slate-900 transition-colors">Pricing</a>
             <a href="#faq" className="text-slate-600 hover:text-slate-900 transition-colors">FAQ</a>
             <button 
-              onClick={() => setAppMode('app')}
+              onClick={() => navigateTo('/app/workspace')}
               className="text-brand-blue font-semibold hover:text-blue-800 transition-colors cursor-pointer"
             >
               Launch Workstation
